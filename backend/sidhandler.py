@@ -16,7 +16,7 @@ import json
 import os
 import hashlib
 
-config = json.load(open(os.path.join("..", "www", "config.json")))
+from configloader import config
 
 if os.path.exists("password"):
 	opass = open("password").read().strip().rstrip()
@@ -30,15 +30,16 @@ if os.path.exists("hashpassword"):
 	PASSWORD = open("hashpassword").read().strip().rstrip()
 
 class SID:
-	def __init__(self, uuid):
+	def __init__(self, uuid=None):
 		self.lasttimestamp = time.time()
 		self.timestamp = time.time()
 		self.authstamp = time.time()
 		self.authstate = False
 		self.lastnull = time.time()
 		self.uuid = str(uuid)
-	def load(jdata): #initialization method, do not call on existing object
-		self = SID(None)
+	@classmethod
+	def load(cls, jdata):
+		self = cls()
 		self.lasttimestamp = jdata["laststamp"]
 		self.timestamp = jdata["stamp"]
 		self.authstamp = jdata["authstamp"]
@@ -89,8 +90,9 @@ class SID:
 class SIDCache:
 	def __init__(self):
 		self.sids = []
-	def load(jdata): #initialization method, do not call on existing object
-		self = SIDCache()
+	@classmethod
+	def load(cls, jdata):
+		self = cls()
 		for sid in jdata:
 			self.sids.append(SID.load(sid))
 		return self

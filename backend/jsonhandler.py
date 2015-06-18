@@ -1,15 +1,22 @@
 import json, os
 
-config = json.load(open(os.path.join("..", "www", "config.json")))
+from configloader import config
 
 def _typelist(l):
 	return [type(i) for i in l]
 
-def _comparetypes(args, expected):
+def _comparetypes(args, expected, numbers = False):
 	args = _typelist(args)
-	args = [(int if i == float else i) for i in args]
-	return args == expected
+	if numbers: args = [(int if i == float else i) for i in args]
+	exp = expected[:]
+	for ii in range(len(exp)):
+		i = exp[ii]
+		if i is any_type:
+			exp[ii] = args[ii]
+	return args == exp
 
+
+class any_type: pass # typelist exception
 
 """
 Format for site-to-program data:
@@ -57,134 +64,71 @@ def parseData(queue, sessions, jdata, shamed):
 
 	if action == "auth" and config["admin_mode_enabled"]:
 		if len(args) != 1:
-			return "Expected 1 arguments, received "+str(len(args))
+			return "Expected 1 argument, received "+str(len(args))
 		expectedtypes = [str]
-		if _typelist(args) != expectedtypes:
+		if not _comparetypes(args, expectedtypes):
 			return "Expected "+str(expectedtypes)+", received "+str(_typelist(args))
 
 		return sessions.auth(sid, args[0])
-
-
-	elif action == "move":
-		if len(args) != 4:
-			return "Expected 4 arguments, received "+str(len(args))
-		expectedtypes = [int, int, int, int]
-		if _typelist(args) != expectedtypes:
-			return "Expected "+str(expectedtypes)+", received "+str(_typelist(args))
-
-		queue.move(args[0],args[1],args[2],args[3])
-
-	elif action == "smove":
-		if len(args) != 3:
-			return "Expected 3 arguments, received "+str(len(args))
-		expectedtypes = [int, int, int]
-		if _typelist(args) != expectedtypes:
-			return "Expected "+str(expectedtypes)+", received "+str(_typelist(args))
-
-		queue.smove(args[0],args[1],args[2])
-
-	elif action == "remove":
-		if len(args) != 2:
-			return "Expected 2 arguments, received "+str(len(args))
-		expectedtypes = [int, int]
-		if _typelist(args) != expectedtypes:
-			return "Expected "+str(expectedtypes)+", received "+str(_typelist(args))
-
-		queue.remove(args[0],args[1])
-
-	elif action == "sremove":
-		if len(args) != 1:
-			return "Expected 1 argument, received "+str(len(args))
-		expectedtypes = [int]
-		if _typelist(args) != expectedtypes:
-			return "Expected "+str(expectedtypes)+", received "+str(_typelist(args))
-
-		queue.sremove(args[0])
-
-	elif action == "pass":
-		if len(args) not in [1, 2]:
-			return "Expected at most 2 arguments, received "+str(len(args))
-		expectedtypes = [[int], [int, int]]
-		if _typelist(args) not in expectedtypes:
-			return "Expected "+str(expectedtypes[0])+" or "+str(expectedtypes[1])+", received "+str(_typelist(args))
-
-		queue.passoff(args[0], args[1] if len(args)>1 else 0)
-
-	elif action == "spass":
-		if len(args) != 1:
-			return "Expected 1 argument, received "+str(len(args))
-		expectedtypes = [int]
-		if _typelist(args) != expectedtypes:
-			return "Expected "+str(expectedtypes)+", received "+str(_typelist(args))
-
-		queue.spass(args[0])
 
 	elif action == "add":
 		if len(args) != 4:
 			return "Expected 4 arguments, received "+str(len(args))
 		expectedtypes = [str, int, int, str]
-		if not _comparetypes(args, expectedtypes):
+		if not _comparetypes(args, expectedtypes, numbers=True):
 			return "Expected "+str(expectedtypes)+", received "+str(_typelist(args))
 
 		queue.append(args[0],args[1],args[2],args[3], sid, authstate)
-	elif action == "sdecrement":
-		if len(args) != 1:
-			return "Expected 1 argument, received "+str(len(args))
-		expectedtypes = [int]
-		if _typelist(args) != expectedtypes:
-			return "Expected "+str(expectedtypes)+", received "+str(_typelist(args))
 
-		queue.sdecrement(args[0])
-	elif action == "sincrement":
-		if len(args) != 1:
-			return "Expected 1 argument, received "+str(len(args))
-		expectedtypes = [int]
-		if _typelist(args) != expectedtypes:
-			return "Expected "+str(expectedtypes)+", received "+str(_typelist(args))
-
-		queue.sincrement(args[0])
-
-
-	elif action == "upass":
+	elif action == "pass":
 		if len(args) != 1:
 			return "Expected 1 argument, received "+str(len(args))
 		expectedtypes = [str]
-		if _typelist(args) != expectedtypes:
+		if not _comparetypes(args, expectedtypes):
 			return "Expected "+str(expectedtypes)+", received "+str(_typelist(args))
 
-		queue.upass(args[0])
-	elif action == "uremove":
+		queue.passoff(args[0])
+	elif action == "remove":
 		if len(args) != 1:
 			return "Expected 1 argument, received "+str(len(args))
 		expectedtypes = [str]
-		if _typelist(args) != expectedtypes:
+		if not _comparetypes(args, expectedtypes):
 			return "Expected "+str(expectedtypes)+", received "+str(_typelist(args))
 
-		queue.uremove(args[0])
-	elif action == "umove":
+		queue.remove(args[0])
+	elif action == "move":
 		if len(args) != 3:
 			return "Expected 3 arguments, received "+str(len(args))
 		expectedtypes = [str, int, int]
-		if _typelist(args) != expectedtypes:
+		if not _comparetypes(args, expectedtypes):
 			return "Expected "+str(expectedtypes)+", received "+str(_typelist(args))
 
-		queue.umove(args[0], args[1], args[2])
-	elif action == "uincrement":
+		queue.move(args[0], args[1], args[2])
+	elif action == "increment":
 		if len(args) != 1:
 			return "Expected 1 argument, received "+str(len(args))
 		expectedtypes = [str]
-		if _typelist(args) != expectedtypes:
+		if not _comparetypes(args, expectedtypes):
 			return "Expected "+str(expectedtypes)+", received "+str(_typelist(args))
 
-		queue.uincrement(args[0])
-	elif action == "udecrement":
+		queue.increment(args[0])
+	elif action == "decrement":
 		if len(args) != 1:
 			return "Expected 1 argument, received "+str(len(args))
 		expectedtypes = [str]
-		if _typelist(args) != expectedtypes:
+		if not _comparetypes(args, expectedtypes):
 			return "Expected "+str(expectedtypes)+", received "+str(_typelist(args))
 
-		queue.udecrement(args[0])
+		queue.decrement(args[0])
+	elif action == "attr":
+		if len(args) != 3:
+			return "Expected 3 arguments, received "+str(len(args))
+		expectedtypes = [str, str, any_type]
+		if not _comparetypes(args, expectedtypes):
+			return "Expected "+str(expectedtypes)+", received "+str(_typelist(args))
+
+		queue.attr(args[0],args[1],args[2],authstate)
+
 
 	else:
 		return "Bad action name"
@@ -211,11 +155,9 @@ Format for program-to-site data:
 }
 """
 
-def generateData(queue, sessions, shamed, esttime, currtime):
+def generateData(queue, sessions, shamed):
 	jdata = {}
 	jdata["queue"] = queue.queue
-	jdata["esttime"] = esttime
-	jdata["currtime"] = currtime
 	jdata["action"] = "display"
 	jdata["auths"] = sessions.cutauths()
 	jdata["deauths"] = shamed

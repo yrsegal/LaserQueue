@@ -9,7 +9,7 @@ function socketSetup() { // god help me
 	// when websockets connects
 	socket.onopen = function() {
 		// print to log and consoles
-		logText('WebSockets connection opened successfully \n');
+		logText('WebSockets connection opened successfully');
 
 		$('#notify-modal').modal('hide');
 
@@ -64,7 +64,18 @@ function socketSetup() { // god help me
 						displayEl = $.extend({}, arrayEl); // deepcopy
 						displayEl.material = materials[arrayEl.material];
 						displayEl.priority = priorities[arrayEl.priority];
-						displayEl.esttime = arrayEl.esttime + (arrayEl.esttime == 1 ? ' minute' : ' minutes');
+						var timetotal = arrayEl.esttime;
+						var hours = Math.floor(timetotal/60);
+						timetotal -= hours*60;
+						var minutes = Math.floor(timetotal);
+						timetotal -= minutes;
+						var seconds = +(timetotal*60).toFixed(2);
+
+						var output = String(hours ? hours+'h' : '') + (minutes && hours ? ' ' : '');
+						output += String(minutes ? minutes+'m' : '') + (seconds && minutes ? ' ' : '');
+						output += String(seconds ? seconds+'s' : '')
+
+						displayEl.esttime = output;
 						// add to full list of cuts
 						allCuts = allCuts.concat(displayEl);
 					});

@@ -4,9 +4,11 @@ function onAuth() {
 	modalMessage('Success!', '<p class="lead">You\'ve been authorized!</p>');
 	setTimeout('
 		$("#notify-modal").modal("hide");
-	', 2000)
+	', 1000);
 	$('.cutting-table-template').render(allCuts, renderDirectives);
 	$('.disabled').prop('disabled', false);
+	$('.authorize').attr('data-original-title', config.logout);
+	$('.nuvu-logo').attr('src', '/img/admin-logo.svg');
 }
 
 function onFailedauth() {
@@ -20,4 +22,6 @@ function onDeauth() {
 	logText('User has been deauthed.');
 	$('.cutting-table-template').render(allCuts, renderDirectives);
 	$('.disabled').prop('disabled', true);
+	$('.authorize').attr('data-original-title', config.login);
+	$('.nuvu-logo').attr('src', '/img/logo.svg');
 }

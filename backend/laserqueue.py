@@ -4,7 +4,7 @@ import time
 import os.path
 from copy import deepcopy
 
-config = json.load(open(os.path.join("..", "www", "config.json")))
+from configloader import config
 
 lpri = len(config["priorities"])-1
 
@@ -21,40 +21,48 @@ def _concatlist(lists):
 			masterlist.append(j)
 	return masterlist
 
-def _fillblanks(odict, keys):
-	for i in keys:
-		if i not in odict:
-			odict[i] = None
-	return odict
+def _fillblanks(odict, adict):
+	return dict(adict, **odict)
 
 class Queue:
-	requiredtags = ["priority", "name", "material", "esttime", "coachmodified", "uuid", "sid", "time"]
+	requiredtags = {
+		"priority":0,
+		"name":"DEFAULT",
+		"material":"o", 
+		"esttime": 0, 
+		"coachmodified": False, 
+		"uuid": "this object is so old that it should be deleted", 
+		"sid": "this object is so old that it should be deleted", 
+		"time": 2**30,
+		"totaldiff": 0
+	}
 	def __init__(self):
 		self.queue = [[] for i in config["priorities"]]
 
-	def load(fileobj): # init method, do not call on existing object
+	@classmethod
+	def load(cls, fileobj):
 		jdata = json.load(fileobj)
-		q = Queue()
+		self = cls()
 		if type(jdata) is not list:
-			return q
+			return self
 		if len(jdata) != len(config["priorities"]):
 			if len(jdata) > len(config["priorities"]):
-				q.queue = jdata[:len(config["priorities"])]
+				self.queue = jdata[:len(config["priorities"])]
 			elif len(jdata) < len(config["priorities"]):
-				q.queue = jdata + [[] for i in range(len(config["priorities"])-len(jdata))]
+				self.queue = jdata + [[] for i in range(len(config["priorities"])-len(jdata))]
 		else:
-			q.queue = jdata
-		for ii in range(len(q.queue)):
-			i = q.queue[ii]
+			self.queue = jdata
+		for ii in range(len(self.queue)):
+			i = self.queue[ii]
 			for item in i:
 				item["priority"] = ii
 				item = _fillblanks(item, Queue.requiredtags)
-		return q
+		return self
 
 	def metapriority(self):
 		for i in self.queue:
 			for item in i:
-				if time.time()-item["time"] > (config["metabump"] + config["metabumpmult"]*item["priority"]):
+				if time.time()-item["time"] > (config["metabump"] + config["metabumpmult"]*item["priority"]) and config["metabump"]:
 					pri = item["priority"]-1
 					if pri < 0:
 						item["time"] = time.time()
@@ -66,7 +74,7 @@ class Queue:
 
 
 	def append(self, name, priority, esttime, material, sid, authstate):
-		if not name:
+		if not name or material == "N/A" or priority == -1:
 			return
 		bounds = config["length_bounds"]
 		if bounds[0] >= 0:
@@ -92,6 +100,7 @@ class Queue:
 
 		if not inqueue or config["allow_multiples"]:
 			self.queue[lpri-priority].append({
+				"totaldiff": 0,
 				"priority": lpri-priority,
 				"name": name.strip().rstrip(),
 				"material": material,
@@ -102,120 +111,12 @@ class Queue:
 				"time": time.time()
 			})
 
-	def passoff(self, priority, index=0):
-		if not priority and len(self.queue[lpri-priority]) < index:
-			return
-		item = self.queue[lpri-priority].pop(index)
-		index += 1
-		if len(self.queue[lpri-priority]) < index:
-			priority -= 1
-			index = 0
-		item["priority"] = lpri-priority
-		self.queue[lpri-priority].insert(max(index, 0),item)
-		
-	def move(self, in1, in2, pr1, pr2):
-		item = self.queue[lpri-pr1].pop(in1)
-		item["coachmodified"] = True
-		item["priority"] = lpri-priority
-		if in2 >= 0:
-			self.queue[lpri-pr2].insert(in2, item)
-		else:
-			self.queue[lpri-pr2].append(item)
-	def remove(self, priority, index):
-
-		del self.queue[lpri-priority][index]
-	def sremove(self, index):
-		masterqueue = _concatlist(self.queue)
-		target = masterqueue[index] 
-		for i in self.queue:
-			if target in i:
-				i.remove(target)
-	def spass(self, oindex):
-		masterqueue = _concatlist(self.queue)
-		if oindex == len(masterqueue)-1: return
-		target = masterqueue[oindex]
-		for ii in range(len(self.queue)):
-			i = self.queue[ii]
-			if target in i:
-				i.remove(target)
-		end = masterqueue[oindex+1]
-		for ii in range(len(self.queue)):
-			i = self.queue[ii]
-			if end in i:
-				tindex = i.index(end)
-				tpri = lpri-ii
-		target["priority"] = lpri-tpri
-		self.queue[lpri-tpri].insert(tindex+1, target)
-
-	def smove(self, oi, ni, np):
-		masterqueue = _concatlist(self.queue)
-		target = masterqueue[oi]
-		for i in self.queue:
-			if target in i:
-				i.remove(target)
-		target["coachmodified"] = True
-		target["priority"] = lpri-np
-		self.queue[lpri-np].insert(ni, target)
-
-	def sincrement(self, index):
-		masterqueue = _concatlist(self.queue)
-		target = masterqueue[index] 
-		for ii in range(len(self.queue)):
-			i = self.queue[ii]
-			if target in i:
-				index = i.index(target)
-				priority = lpri-ii
-
-		if priority == lpri and not index:
-			return
-		item = self.queue[lpri-priority].pop(index)
-		index -= 1
-		if index < 0:
-			priority += 1
-			if priority > lpri:
-				index = 0
-				priority = lpri
-			else:
-				index = len(self.queue[max(lpri-priority, 0)])
-		item["coachmodified"] = True
-		item["priority"] = lpri-priority
-		self.queue[max(lpri-priority, 0)].insert(min(index, len(self.queue[max(lpri-priority, 0)])),item)
-
-	def sdecrement(self, index):
-		masterqueue = _concatlist(self.queue)
-		target = masterqueue[index] 
-		for ii in range(len(self.queue)):
-			i = self.queue[ii]
-			if target in i:
-				index = i.index(target)
-				priority = lpri-ii
-
-		if not priority and len(self.queue[lpri-priority]) < index:
-			return
-		item = self.queue[lpri-priority].pop(index)
-		index += 1
-		if len(self.queue[lpri-priority]) < index:
-			priority -= 1
-			if priority < 0:
-				index = len(self.queue[min(lpri-priority, lpri)])
-				priority = 0
-			else:
-				index = 0
-		item["coachmodified"] = True
-		item["priority"] = lpri-priority
-		self.queue[min(lpri-priority, lpri)].insert(max(index, 0),item)
-	
-	# uuid update
-
-
-
-
-	def uremove(self, u):
+	def remove(self, u):
 		for i in self.queue:
 			for j in i:
 				if j["uuid"] == u:
 					i.remove(j)
-	def upass(self, u):
+	def passoff(self, u):
 		masterqueue = _concatlist(self.queue)
 		for i in self.queue:
 			for j in i:
@@ -234,20 +135,22 @@ class Queue:
 			if end in i:
 				tindex = i.index(end)
 				tpri = lpri-ii
+		target["time"] = time.time()
 		target["priority"] = lpri-tpri
 		self.queue[lpri-tpri].insert(tindex+1, target)
 
-	def umove(self, u, ni, np):
+	def move(self, u, ni, np):
 		for i in self.queue:
 			for j in i:
 				if j["uuid"] == u:
 					target = deepcopy(j)
 					i.remove(j)
+		target["time"] = time.time()
 		target["coachmodified"] = True
 		target["priority"] = lpri-np
 		self.queue[lpri-np].insert(ni, target)
 
-	def uincrement(self, u):
+	def increment(self, u):
 		for i in self.queue:
 			for j in i:
 				if j["uuid"] == u:
@@ -265,11 +168,12 @@ class Queue:
 				priority = lpri
 			else:
 				index = len(self.queue[max(lpri-priority, 0)])
+		item["time"] = time.time()
 		item["coachmodified"] = True
 		item["priority"] = lpri-priority
 		self.queue[max(lpri-priority, 0)].insert(min(index, len(self.queue[max(lpri-priority, 0)])),item)
 
-	def udecrement(self, u):
+	def decrement(self, u):
 		for i in self.queue:
 			for j in i:
 				if j["uuid"] == u:
@@ -287,6 +191,48 @@ class Queue:
 				priority = 0
 			else:
 				index = 0
+		item["time"] = time.time()
 		item["coachmodified"] = True
 		item["priority"] = lpri-priority
 		self.queue[min(lpri-priority, lpri)].insert(max(index, 0),item)
+
+	def attr(self, u, attrname, value, authstate):
+		if attrname not in self.requiredtags or attrname in ["uuid", "sid", "time", "totaldiff"]:
+			return
+		if attrname not in config["attr_edit_perms"] and not authstate:
+			return
+		for i in self.queue:
+			for j in i:
+				if j["uuid"] == u:
+					index = i.index(j)
+					priority = lpri-self.queue.index(i)
+		item = self.queue[lpri-priority][index]
+		if attrname not in config["attr_edit_perms"] and attrname != "coachmodified":
+			item["coachmodified"] = True
+
+		if attrname == "name": item["name"] = str(value).strip().rstrip()
+		elif attrname == "material" and value in config["materials"]: item["material"] = value
+		elif attrname == "esttime":
+			bounds = config["length_bounds"]
+			if bounds[0] >= 0:
+				value = max(bounds[0], value)
+			if bounds[1] >= 0:
+				value = min(bounds[1], value)
+			prevtime = item["esttime"]
+			item["esttime"] = value
+			if config["recalc_priority"] and not authstate:
+				newpriority = priority*1
+				item["totaldiff"] += value-prevtime
+				item["totaldiff"] = max(item["totaldiff"], 0)
+				while item["totaldiff"] >= 10: 
+					newpriority -= 1
+					item["totaldiff"] -= 10
+
+				newpriority = max(newpriority, 0)
+				item["priority"] = lpri-newpriority
+				self.queue[lpri-priority].pop(index)
+				self.queue[lpri-newpriority].append(item)
+			elif authstate and config["recalc_priority"]:
+				item["coachmodified"] = True
+		elif attrname == "coachmodified": item["coachmodified"] = bool(value)
+
